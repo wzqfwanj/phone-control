@@ -58,10 +58,18 @@ public class ScreenService extends Service {
     private static final String CHANNEL_ID = "phonecontrol";
     private static final int NOTIF_ID = 0x1001;
 
-    private static final int MAX_EDGE = 540;
-    private static final int JPEG_QUALITY = 60;
-    private static final long FRAME_INTERVAL_MS = 200; // ~5fps
+    // 画面质量：按「宽度」缩放（竖屏手机按长边缩会窄到不可读），可被浏览器 quality 指令实时调整。
+    private static final int MIN_TARGET_WIDTH = 240;
+    private static final int MAX_TARGET_WIDTH = 1080;
+    private static final int DEFAULT_TARGET_WIDTH = 540;
+    private static final int MAX_TARGET_HEIGHT = 2200;
+    private static final int DEFAULT_JPEG_QUALITY = 65;
+    private static final double DEFAULT_FPS = 8;
     private static final int MAX_TEXT_LENGTH = 500;
+
+    private volatile int targetWidth = DEFAULT_TARGET_WIDTH;
+    private volatile int jpegQuality = DEFAULT_JPEG_QUALITY;
+    private volatile long frameIntervalMs = (long) (1000.0 / DEFAULT_FPS);
 
     private MediaProjection projection;
     private VirtualDisplay virtualDisplay;
@@ -350,7 +358,7 @@ public class ScreenService extends Service {
                 return;
             }
             long now = SystemClock.elapsedRealtime();
-            if (now - lastFrameAt < FRAME_INTERVAL_MS) {
+            if (now - lastFrameAt < frameIntervalMs) {
                 return;
             }
             lastFrameAt = now;
@@ -359,7 +367,7 @@ public class ScreenService extends Service {
                 return;
             }
             jpegBuffer.reset();
-            if (!frame.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, jpegBuffer)) {
+            if (!frame.compress(Bitmap.CompressFormat.JPEG, jpegQuality, jpegBuffer)) {
                 return;
             }
             client.sendBinary(jpegBuffer.toByteArray());
@@ -399,10 +407,26 @@ public class ScreenService extends Service {
         buffer.rewind();
         rawBitmap.copyPixelsFromBuffer(buffer);
 
-        int maxEdge = Math.max(width, height);
-        float scale = maxEdge > MAX_EDGE ? ((float) MAX_EDGE / (float) maxEdge) : 1f;
+        return scaleRawBitmap(width, height);
+    }
+
+    /** 把 rawBitmap（可能是带行内边距的整屏）缩放成待编码的帧；按宽度缩放，防 OOM 限高。 */
+    private Bitmap scaleRawBitmap(int width, int height) {
+        if (rawBitmap == null) {
+            return null;
+        }
+        // 按宽度等比缩放（竖屏手机按长边缩会窄到看不清），并给高度兜个上限防 OOM
+        float scale = (float) targetWidth / (float) width;
+        if (scale > 1f) {
+            scale = 1f;
+        }
         int dstW = Math.max(1, Math.round(width * scale));
         int dstH = Math.max(1, Math.round(height * scale));
+        if (dstH > MAX_TARGET_HEIGHT) {
+            float shrink = (float) MAX_TARGET_HEIGHT / (float) dstH;
+            dstW = Math.max(1, Math.round(dstW * shrink));
+            dstH = MAX_TARGET_HEIGHT;
+        }
 
         if (frameBitmap == null || frameBitmap.getWidth() != dstW || frameBitmap.getHeight() != dstH) {
             frameBitmap = Bitmap.createBitmap(dstW, dstH, Bitmap.Config.ARGB_8888);
@@ -412,6 +436,47 @@ public class ScreenService extends Service {
         dstRect.set(0, 0, dstW, dstH);
         frameCanvas.drawBitmap(rawBitmap, srcRect, dstRect, scalePaint);
         return frameBitmap;
+    }
+
+    /**
+     * 改清晰度后立刻用上一帧重新编码推送：MediaProjection 只在画面变化时出图，
+     * 静止屏幕上不主动补一帧的话，用户会以为清晰度没生效。
+     * 必须在抓帧线程（captureHandler）上执行，避免和 handleImageAvailable 抢 bitmap。
+     */
+    private void republishLastFrame() {
+        if (destroyed || !streaming || viewers <= 0) {
+            return;
+        }
+        WsClient client = ws;
+        if (client == null || !client.isOpen() || rawBitmap == null) {
+            return;
+        }
+        try {
+            Bitmap frame = scaleRawBitmap(screenW, screenH);
+            if (frame == null) {
+                return;
+            }
+            jpegBuffer.reset();
+            if (frame.compress(Bitmap.CompressFormat.JPEG, jpegQuality, jpegBuffer)) {
+                client.sendBinary(jpegBuffer.toByteArray());
+            }
+        } catch (Throwable ignored) {
+            // 补帧失败无所谓，等下一次画面变化
+        }
+    }
+
+    /** 把「补推上一帧」丢到抓帧线程执行（bitmap 只能在该线程使用）。 */
+    private void postRepublishLastFrame() {
+        Handler handler = captureHandler;
+        if (handler == null) {
+            return;
+        }
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                republishLastFrame();
+            }
+        });
     }
 
     // ---------------------------------------------------------------- WebSocket
@@ -511,8 +576,13 @@ public class ScreenService extends Service {
             JSONObject message = new JSONObject(text);
             String type = message.optString("t", "");
             if ("viewers".equals(type)) {
+                int previous = viewers;
                 viewers = message.optInt("n", 0);
                 updateStreamingState();
+                if (viewers > 0 && previous <= 0) {
+                    // 刚有人观看：手机屏幕可能静止（不出新帧），先把上一帧补推过去
+                    postRepublishLastFrame();
+                }
                 if (viewers > 0) {
                     updateNotification("电脑正在观看（" + viewers + " 个连接）");
                 } else {
@@ -687,6 +757,22 @@ public class ScreenService extends Service {
                 } else {
                     sendError(id, error);
                 }
+                return;
+            }
+            case "quality": {
+                // 浏览器调整清晰度：{"action":"quality","width":540,"q":65,"fps":8}
+                int nextWidth = (int) command.optDouble("width", targetWidth);
+                int nextQuality = (int) command.optDouble("q", jpegQuality);
+                double nextFps = command.optDouble("fps", 1000.0 / Math.max(1, frameIntervalMs));
+                targetWidth = Math.max(MIN_TARGET_WIDTH, Math.min(MAX_TARGET_WIDTH, nextWidth));
+                jpegQuality = Math.max(30, Math.min(90, nextQuality));
+                double clampedFps = Math.max(1.0, Math.min(15.0, nextFps));
+                frameIntervalMs = Math.max(30L, (long) (1000.0 / clampedFps));
+                broadcastStatus("清晰度已切换: 宽 " + targetWidth + "px / q" + jpegQuality
+                        + " / " + Math.round(1000.0 / frameIntervalMs) + "fps");
+                // 静止屏幕上不会自动出新帧，立刻用上一帧按新参数重推一次
+                postRepublishLastFrame();
+                sendAck(id);
                 return;
             }
             default:

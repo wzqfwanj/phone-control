@@ -30,8 +30,9 @@ W, H = 720, 1280
 
 
 class FakeDevice:
-    def __init__(self, fps: float = 5.0):
+    def __init__(self, fps: float = 5.0, accessibility: bool = True):
         self.fps = fps
+        self.accessibility = accessibility
         self.viewers = 0
         self.last_cmd = "(none)"
         self.last_text = ""
@@ -73,7 +74,7 @@ class FakeDevice:
 
     async def run(self, url: str, seconds: float):
         async with websockets.connect(url, max_size=8 * 1024 * 1024) as ws:
-            hello = {"t": "hello", "name": "FakePhone", "w": W, "h": H, "accessibility": True, "version": 1}
+            hello = {"t": "hello", "name": "FakePhone", "w": W, "h": H, "accessibility": self.accessibility, "version": 1}
             await ws.send(json.dumps(hello))
             print(f"[device] connected, hello sent -> {url}", flush=True)
             pump = asyncio.create_task(self.pump_frames(ws))
@@ -133,10 +134,11 @@ def main() -> int:
     ap.add_argument("--key", default="testkey")
     ap.add_argument("--fps", type=float, default=5.0)
     ap.add_argument("--seconds", type=float, default=600)
+    ap.add_argument("--no-a11y", action="store_true", help="模拟无障碍未开启的设备")
     args = ap.parse_args()
     url = f"{args.url}?key={args.key}" if "?" not in args.url else args.url
     try:
-        asyncio.run(FakeDevice(args.fps).run(url, args.seconds))
+        asyncio.run(FakeDevice(args.fps, accessibility=not args.no_a11y).run(url, args.seconds))
     except KeyboardInterrupt:
         pass
     return 0

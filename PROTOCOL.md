@@ -92,6 +92,7 @@
 | `longpress` | `x,y,ms` | 长按，`ms` 默认 600 |
 | `key` | `name` | `back` / `home` / `recents` / `notifications` / `enter` / `volume_up` / `volume_down` / `wake` / `sleep` |
 | `text` | `text` | 向当前焦点输入框输入文本（≤ 500 字） |
+| `quality` | `width,q,fps` | 调整画面清晰度：目标宽度像素（240~1080）、JPEG 质量（30~90）、帧率（1~15）；设备 `ack` 后生效 |
 
 坐标归一化：`x = 像素x / 屏幕宽`、`y = 像素y / 屏幕高`，保留 4 位小数；服务端原样转发，由设备端换算。
 

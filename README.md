@@ -11,15 +11,16 @@
 
 ![电脑端控制台](docs/screenshot.png)
 
-> 上图是真实链路：浏览器的画面就是一台 Android 设备的实时屏幕（304×540 的 JPEG 帧，约 5fps），
+> 上图是真实链路：浏览器的画面就是一台 Android 设备的实时屏幕（JPEG 帧，默认 540px 宽）；
 > 点击 / 拖动 / 长按 / 按键 / 文本输入都会下发到手机上执行。
 
 ## 能做什么（最小功能集）
 
 | 能力 | 说明 |
 | --- | --- |
-| 实时看屏幕 | MediaProjection 抓屏 → 缩放 → JPEG，仅在有人观看时推流（省电） |
-| 点击 / 滑动 / 长按 | 无障碍 `dispatchGesture`，坐标按画面比例归一化 |
+| 实时看屏幕 | MediaProjection 抓屏 → 按**宽度**等比缩放 → JPEG，仅在有人观看时推流（省电） |
+| 画面清晰度 | 页面可切 省流（宽 360）/ 清晰（宽 540）/ 原画（宽 720）；切档后设备立刻补推一帧 |
+| 点击 / 滑动 / 长按 | 无障碍 `dispatchGesture`，坐标按画面比例归一化；无障碍未开启时页面会红框提示 |
 | 系统按键 | 返回 / 桌面 / 多任务 / 通知栏 / 音量± / 亮屏 / 锁屏 |
 | 文本输入 | 无障碍 `ACTION_SET_TEXT` 写入当前焦点输入框 |
 | 在线状态 | 设备名、分辨率、无障碍是否开启、自动重连 |
@@ -63,10 +64,12 @@ Python 服务端（单进程 asyncio：HTTP 静态站点 + WebSocket 中继）
    默认优先使用内置配对码的个人版，自己打包含哪些就在 `dist/` 里放哪个）。
 2. 打开 App：填**服务器地址** `wss://wkeeli.cn/agent/ws/device`（已预置）和**配对码**（=
    服务端 `CONTROL_DEVICE_KEY`）。
-3. 设置 → 无障碍 → 开启「手机控制（远程操作）」，否则点击/滑动/按键/文本不可用。
+3. 设置 → 无障碍 → 开启「手机控制（远程操作）」，否则点击/滑动/按键/文本不可用
+   （页面上会有醒目提示；小米/红米还需把「省电策略」设为无限制）。
 4. 点「开始投屏」，在系统弹窗里允许录屏。
 5. 电脑浏览器打开 <https://wkeeli.cn/control/>，登录后即可看到画面并操作。
 
+> **覆盖安装新版 APK 后，无障碍服务可能被系统解绑**：去设置里关一次再打开一次即可。
 > 配对码查看（部署机）：`ssh dev "grep CONTROL_DEVICE_KEY /opt/phone-control/.env"`。
 > 想做到「装完即用、不用手填」：新建 `android/private.properties` 写入
 > `server.url` 与 `device.key` 后重新构建，配对码会编译进 APK（该文件与 APK 均不入库）。
@@ -123,16 +126,20 @@ powershell -ExecutionPolicy Bypass -File android/build.ps1 -Verify
 
 - 服务端 30 个单元测试；本地「真实服务端 + 假设备 + 无头 Chrome」19 项端到端全绿。
 - Android：APK 构建/签名校验通过；模拟器（Android 11）安装 → 无障碍 → 投屏授权 → 连上服务端
-  → 上报 hello → 推 JPEG 帧 → tap/swipe/longpress/按键 全部 ack。
-- 线上：手机端经 `wss://wkeeli.cn/agent/ws/device` 成功上线；浏览器侧经 Caddy
-  `wss://wkeeli.cn/control/ws/web` 收到真实帧并下发指令收到 ack。
+  → 上报 hello → 推 JPEG 帧 → tap/swipe/longpress/按键 全部 ack；清晰度切档实测
+  省流档帧宽 360 / 清晰档 480（模拟器原生宽）。
+- 线上：手机端（Xiaomi 1080×2400 真机）经 `wss://wkeeli.cn/agent/ws/device` 成功上线；
+  浏览器侧经 Caddy `wss://wkeeli.cn/control/ws/web` 收到真实帧并下发指令。
 
 ## 已知限制
 
-- MediaProjection 出帧由画面变化驱动：屏幕长时间静止时不会有新帧（5fps 只是上限）。
-- 无障碍授权各家 ROM 路径略有差异；部分 ROM 需要「允许后台运行」才不会被杀。
+- MediaProjection 出帧由画面变化驱动：屏幕静止时不会有新帧。已做缓解——刚有人观看、以及切换
+  清晰度时会用上一帧补推一次；但长时间静止后画面不会持续刷新。
+- 无障碍授权各家 ROM 路径略有差异；部分 ROM 需要「允许后台运行 / 省电无限制」才不会被杀。
+- 覆盖安装 APK 后，无障碍服务可能被系统解绑，需要重新开关一次。
 - 锁屏（sleep）需 Android 9+；回车（enter）需 Android 11+。
-- 未在真机 / Android 14 真机上验证过完整流程（代码按 Android 14 的前台服务顺序要求实现）。
+- 清晰度越高占用带宽越大（清晰档约 540px 宽 × 8fps）；网络差时切「省流」。
+- 未在 Android 14 真机上验证过完整流程（代码按 Android 14 的前台服务顺序要求实现）。
 
 ## 许可
 

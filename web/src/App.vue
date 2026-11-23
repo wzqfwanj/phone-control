@@ -1,6 +1,6 @@
 <script setup>
 // 电脑端控制台：状态 + 画面 + 操作区
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import ControlPanel from "./components/ControlPanel.vue";
 import ScreenPanel from "./components/ScreenPanel.vue";
 import { useRemote } from "./composables/useRemote.js";
@@ -14,6 +14,14 @@ const {
   sendCmd,
   reconnectNow,
 } = useRemote();
+
+// 画面清晰度档位（对应设备端 quality 指令：宽度 / JPEG 质量 / 帧率）
+const QUALITIES = [
+  { key: "low", label: "省流", width: 360, q: 60, fps: 5 },
+  { key: "clear", label: "清晰", width: 540, q: 65, fps: 8 },
+  { key: "high", label: "原画", width: 720, q: 75, fps: 8 },
+];
+const quality = ref("clear");
 
 const stateClass = computed(() => {
   if (connected.value) return "online";
@@ -44,6 +52,17 @@ const accessibility = computed(() => {
   if (device.value.accessibility === false) return "未开启";
   return "—";
 });
+
+// 设备在线但无障碍没开：画面能看，所有点击/滑动/按键/文本都会被拒绝
+const a11yMissing = computed(
+  () => connected.value && device.value.accessibility === false,
+);
+
+function onQuality(item) {
+  if (!connected.value) return;
+  quality.value = item.key;
+  sendCmd("quality", { width: item.width, q: item.q, fps: item.fps });
+}
 
 function onTap(point) {
   sendCmd("tap", point);
@@ -103,6 +122,29 @@ function onText(text) {
           <dd>{{ accessibility }}</dd>
         </div>
       </dl>
+
+      <section v-if="a11yMissing" class="a11y-warn" role="alert">
+        <strong>手机端无障碍未开启 → 点击 / 滑动 / 按键 / 输入文字都不会生效</strong>
+        <span>
+          请在手机上操作：设置 → 无障碍（部分机型是「已下载的服务」）→ 开启「手机控制（远程操作）」。
+          小米/红米在「设置 → 应用设置 → 手机控制 → 省电策略」选「无限制」更稳。
+        </span>
+      </section>
+
+      <div class="quality" aria-label="画面清晰度">
+        <span class="quality-label">清晰度</span>
+        <button
+          v-for="item in QUALITIES"
+          :key="item.key"
+          type="button"
+          class="quality-btn"
+          :class="{ active: quality === item.key }"
+          :disabled="!connected"
+          @click="onQuality(item)"
+        >
+          {{ item.label }}
+        </button>
+      </div>
 
       <ScreenPanel
         :frame-url="frameUrl"
@@ -206,6 +248,67 @@ function onText(text) {
   min-height: 20px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.a11y-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--fg);
+  border-radius: 6px;
+}
+
+.a11y-warn strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.a11y-warn span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.quality {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.quality-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.quality-btn {
+  padding: 3px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.quality-btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.quality-btn.active {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.quality-btn:disabled {
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .download {
