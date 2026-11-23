@@ -10,7 +10,7 @@
                                                                       │
 手机 App ──WSS──> wss://wkeeli.cn/agent/ws/device?key=<KEY>           │
                                                                       ▼
-dev 主机（180.76.180.249）：frpc 隧道 8090→18090，systemd 常驻
+dev 主机（<dev-host>）：frpc 隧道 8090→18090，systemd 常驻
                             /opt/phone-control/.venv/bin/python server/server.py
                             只监听 127.0.0.1:8090
 ```
@@ -38,12 +38,12 @@ dev 主机（180.76.180.249）：frpc 隧道 8090→18090，systemd 常驻
 
 ## 已知线上现状（2026-11-23 部署前核对）
 
-- dev（180.76.180.249）：root + 免密 sudo，Python 3.12.3，venv 可用，`rsync`/`openssl`/`curl` 可用，联网正常。
+- dev（<dev-host>）：root + 免密 sudo，Python 3.12.3，venv 可用，`rsync`/`openssl`/`curl` 可用，联网正常。
   - `8090` 空闲（`8091` 被别的 python 占用，与本项目无关）。
   - `/opt/frp/frpc.toml` 原有 10 个 proxy：milvus、mysql、redis、redis-insight、pw、postgres、
     supersys、supercut、constraints、super-context；**无 `phone-control`，`remotePort=18090` 空闲**。
   - `frpc 0.61.1`（支持 `frpc verify -c`），服务名 `frpc.service`。
-- aliyun（8.133.209.25）：root + 免密 sudo，Caddy v2.11.4（`caddy.service` active）。
+- aliyun（<jump-host>）：root + 免密 sudo，Caddy v2.11.4（`caddy.service` active）。
   - `/etc/caddy/Caddyfile` 共 326 行；`wkeeli.cn { ... }` 块位于第 7–287 行；
   - `@not_local { ... }` 在第 11–16 行（`not remote_ip ...` + `not path /pc2mb/*`、`/record/*`、`/context/s/*`）；
   - `basic_auth @not_local` 在第 17–19 行；
