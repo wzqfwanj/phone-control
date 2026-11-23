@@ -1,0 +1,32 @@
+[Unit]
+Description=phone-control - phone remote control relay (WebSocket + static console)
+Documentation=https://github.com/wzqfwanj/phone-control
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/phone-control
+# 环境变量来自 /opt/phone-control/.env（首次部署由 deploy/push.ps1 生成，含随机 DEVICE_KEY）
+EnvironmentFile=/opt/phone-control/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/phone-control/.venv/bin/python server/server.py
+Restart=always
+RestartSec=3
+
+# 安全加固：只读文件系统、只允许网络 socket，服务只需要读代码和静态文件
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+LockPersonality=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

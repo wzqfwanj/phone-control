@@ -1,6 +1,6 @@
 # 一次性工具链准备：JDK17 + Android cmdline-tools + build-tools/platform
 # 用法: powershell -ExecutionPolicy Bypass -File tools/setup-android.ps1
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
 $tools = 'C:\dev-tools'
 $sdk = 'C:\Android\Sdk'

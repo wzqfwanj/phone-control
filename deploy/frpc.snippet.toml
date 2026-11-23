@@ -1,0 +1,10 @@
+# 手机远程控制：dev 主机 127.0.0.1:8090 ← frp → aliyun 127.0.0.1:18090
+# 用法：把这 5 行追加到 dev 主机 /opt/frp/frpc.toml 末尾（只追加，不要覆盖已有的 [common] / [[proxies]] 段）。
+# 生效：cd /opt/frp && ./frpc verify -c /opt/frp/frpc.toml && systemctl restart frpc
+# 验证：在 aliyun 执行 curl -s http://127.0.0.1:18090/healthz
+[[proxies]]
+name = "phone-control"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8090
+remotePort = 18090

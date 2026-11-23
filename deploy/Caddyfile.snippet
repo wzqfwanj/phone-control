@@ -1,0 +1,46 @@
+# ===== 手机远程控制（dev 机 127.0.0.1:18090 ← frp 隧道，入口 /control/ 与 /agent/）=====
+#
+# 需要改 aliyun 上 /etc/caddy/Caddyfile 的 `wkeeli.cn { ... }` 块内 **两处**：
+#
+# 【一】设备通道免登录（必须）：在站点块开头的 `@not_local { ... }`（当前 Caddyfile 第 11–16 行）
+#       里、`not path /context/s/*` 之后加一行 `not path /agent/*`。
+#       注意这是修改已有块，不是粘贴新块。改完后它应长这样：
+#
+#           @not_local {
+#               not remote_ip 127.0.0.1 ::1 8.133.209.25 10.0.0.0/8 172.16.0.0/12
+#               not path /pc2mb/*
+#               not path /record/*
+#               not path /context/s/*
+#               not path /agent/*
+#           }
+#
+#       原因：手机 App 是原生 WS 客户端，不能像浏览器那样带全站 Basic Auth，只能靠配对码鉴权；
+#       而 /control/*（浏览器页面 + 浏览器 WS）仍走全站登录，不要排除。
+#
+# 【二】粘贴下面这一整段（从 `redir /control` 到 `handle /agent/*` 的右花括号）到
+#       `wkeeli.cn { ... }` 块内，位置在兜底语句 `reverse_proxy localhost:5000` **之前**
+#       （当前 Caddyfile 第 274 行；建议紧跟 /context 块之后）。两个 handle 都开到 18090：
+#         /control/*  → handle_path 剥掉前缀 → 后端收到 / 和 /ws/web
+#         /agent/*    → handle 不剥前缀     → 后端自己剥 /agent 后收到 /ws/device
+#
+# 生效（必须先备份，validate 通过才 reload）：
+#   sudo cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-phone-control-$(date +%Y%m%d-%H%M%S)
+#   sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# WebSocket 必须 flush_interval -1（关闭响应缓冲），否则画面/心跳会被攒批。
+# 全站 Basic Auth 与 CSP（connect-src 'self' 已允许同源 wss）都无需改动。
+
+	# ----- 手机远程控制：电脑端控制台（剥前缀，走全站 Basic Auth）-----
+	redir /control /control/ 308
+	handle_path /control/* {
+		reverse_proxy 127.0.0.1:18090 {
+			flush_interval -1
+		}
+	}
+
+	# ----- 手机远程控制：设备 WebSocket 通道（不剥前缀、免全站登录，靠配对码鉴权）-----
+	handle /agent/* {
+		reverse_proxy 127.0.0.1:18090 {
+			flush_interval -1
+		}
+	}

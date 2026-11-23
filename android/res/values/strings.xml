@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">手机控制</string>
+    <string name="accessibility_label">手机控制（远程操作）</string>
+    <string name="accessibility_desc">允许电脑浏览器远程点击、滑动、输入文字和控制按键。本服务仅在你主动开启远程控制时使用。</string>
+</resources>

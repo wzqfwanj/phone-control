@@ -1,0 +1,15 @@
+# 本地构建期配置（本文件不入库，已在 .gitignore 中忽略）
+# 复制为 android/private.properties 后按需修改；缺省值见 build.ps1。
+
+# 服务端 WebSocket 地址。线上：wss://wkeeli.cn/agent/ws/device
+# 局域网调试：ws://192.168.1.100:8090/agent/ws/device
+server.url=wss://wkeeli.cn/agent/ws/device
+
+# 设备配对码（服务端 CONTROL_DEVICE_KEY）。留空则 App 首次运行时提示手填。
+device.key=
+
+# 可选：签名配置。留空则用 android/debug.keystore（首次构建自动生成）。
+keystore.path=
+keystore.pass=android
+key.alias=androiddebugkey
+key.pass=android

@@ -20,7 +20,10 @@ android/private.properties
 android/build.properties
 local.properties
 
-# 工具链与临时文件
+# 工具链、临时文件与本地测试产物
 .tools/
+.tools-setup.log
+.e2e/
+dist/
 *.log
 *.zip
