@@ -58,7 +58,9 @@ Python 服务端（单进程 asyncio：HTTP 静态站点 + WebSocket 中继）
 
 ## 手机端使用
 
-1. 安装 [Release 里的 `phone-control-generic.apk`][release]（不含配对码，需手填），或自己构建。
+1. 安装 [Release 里的 `phone-control-generic.apk`][release]（不含配对码，需手填），或自己构建；
+   **也可以直接在控制台页面上点「下载 APK」**（`/control/phone-control.apk`，由构建时放进 `web/dist` 的版本决定，
+   默认优先使用内置配对码的个人版，自己打包含哪些就在 `dist/` 里放哪个）。
 2. 打开 App：填**服务器地址** `wss://wkeeli.cn/agent/ws/device`（已预置）和**配对码**（=
    服务端 `CONTROL_DEVICE_KEY`）。
 3. 设置 → 无障碍 → 开启「手机控制（远程操作）」，否则点击/滑动/按键/文本不可用。

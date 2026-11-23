@@ -97,6 +97,7 @@ _CONTENT_TYPES = {
     ".ttf": "font/ttf",
     ".txt": "text/plain; charset=utf-8",
     ".wasm": "application/wasm",
+    ".apk": "application/vnd.android.package-archive",
 }
 
 

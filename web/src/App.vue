@@ -115,6 +115,14 @@ function onText(text) {
         @longpress="onLongpress"
       />
 
+      <section class="download" aria-label="下载手机端 App">
+        <div class="download-text">
+          <strong>手机端还没装 App？</strong>
+          <span>下载安装 → 设置里开启无障碍 → 回 App 点「开始投屏」</span>
+        </div>
+        <a class="download-btn" href="phone-control.apk" download>下载 APK</a>
+      </section>
+
       <ControlPanel :disabled="!connected" @key="onKey" @text="onText" />
 
       <p class="feedback" aria-live="polite">
@@ -198,5 +206,63 @@ function onText(text) {
   min-height: 20px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.download {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.download-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.download-text strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.download-text span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.download-btn {
+  flex: none;
+  margin-left: auto;
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.download-btn:hover {
+  background: var(--line);
+}
+
+@media (max-width: 560px) {
+  .download {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .download-btn {
+    align-self: stretch;
+    margin-left: 0;
+    text-align: center;
+  }
 }
 </style>
