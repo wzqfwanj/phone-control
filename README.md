@@ -3,7 +3,11 @@
 手机装一个 App，电脑浏览器就能**实时看到手机屏幕并直接操作手机**。
 
 - 电脑端（线上）：<https://wkeeli.cn/control/> —— 复用 wkeeli.cn 全站登录
-- 手机端：安装 APK → 开启无障碍 → 点「开始投屏」并允许录屏，电脑打开上面的网址即可
+- 手机端 APK：[Release 下载][release] → 开启无障碍 → 点「开始投屏」并允许录屏，电脑打开上面的网址即可
+- 源码：[github.com/wzqfwanj/phone-control][repo]（MIT）
+
+[release]: https://github.com/wzqfwanj/phone-control/releases/latest
+[repo]: https://github.com/wzqfwanj/phone-control
 
 ![电脑端控制台](docs/screenshot.png)
 
@@ -54,7 +58,7 @@ Python 服务端（单进程 asyncio：HTTP 静态站点 + WebSocket 中继）
 
 ## 手机端使用
 
-1. 安装 `phone-control.apk`（Release 里的通用版，或自己构建）。
+1. 安装 [Release 里的 `phone-control-generic.apk`][release]（不含配对码，需手填），或自己构建。
 2. 打开 App：填**服务器地址** `wss://wkeeli.cn/agent/ws/device`（已预置）和**配对码**（=
    服务端 `CONTROL_DEVICE_KEY`）。
 3. 设置 → 无障碍 → 开启「手机控制（远程操作）」，否则点击/滑动/按键/文本不可用。
